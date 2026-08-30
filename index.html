@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Ledger</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --felt-900:#0d2b22;
+    --felt-800:#123c2f;
+    --felt-700:#1a4d3c;
+    --brass:#c9a24a;
+    --brass-bright:#e6c368;
+    --cream:#f3ecdc;
+    --cream-dim:#c9c0a9;
+    --red:#b8493f;
+    --green-chip:#3f8f6a;
+    --line: rgba(243,236,220,0.14);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 50% -10%, var(--felt-700) 0%, var(--felt-900) 60%),
+      var(--felt-900);
+    color:var(--cream);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:32px 16px 80px;
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+    pointer-events:none; z-index:0;
+  }
+
+  header{text-align:center; margin-bottom:24px; position:relative;}
+  header .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--brass); margin-bottom:10px;
+  }
+  h1{
+    font-family:'Fraunces',serif; font-weight:600; font-size:clamp(28px,6vw,40px);
+    margin:0; color:var(--cream); letter-spacing:-0.01em;
+  }
+  h1 span{color:var(--brass-bright);font-style:italic;font-weight:500;}
+  header .sub{color:var(--cream-dim); font-size:13px; margin-top:8px;}
+
+  .shared-note{
+    display:flex; align-items:center; gap:8px; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--cream-dim);
+    margin-top:12px; padding:8px 12px; border:1px solid var(--line); border-radius:20px;
+    max-width:fit-content; margin-left:auto; margin-right:auto;
+  }
+  .shared-note .dot{width:6px;height:6px;border-radius:50%;background:var(--green-chip);flex:none;}
+
+  /* tabs */
+  .tabs{
+    display:flex; gap:6px; margin-bottom:20px;
+    background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:12px; padding:5px;
+    position:relative; z-index:1;
+  }
+  .tab{
+    flex:1; text-align:center; padding:10px 8px; border-radius:8px; cursor:pointer;
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--cream-dim); border:none; background:transparent;
+  }
+  .tab.active{background:var(--brass); color:var(--felt-900); font-weight:700;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015));
+    border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:20px;
+    position:relative; z-index:1;
+  }
+  .card h2{
+    font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.14em;
+    color:var(--brass); margin:0 0 16px 0; display:flex; align-items:center; gap:8px; justify-content:space-between;
+  }
+  .card h2 .titlegroup{display:flex; align-items:center; gap:8px;}
+  .card h2 .n{
+    display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
+    background:var(--brass); color:var(--felt-900); font-size:11px; font-weight:700;
+  }
+
+  .field-row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;}
+  .field-row label{font-size:13px; color:var(--cream-dim);}
+  .text-input, .buyin-input{
+    display:flex; align-items:center; background:var(--felt-900); border:1px solid var(--line); border-radius:10px; overflow:hidden;
+  }
+  .buyin-input span.prefix{
+    padding:9px 10px; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--brass); border-right:1px solid var(--line);
+  }
+  .buyin-input input, .text-input input{
+    width:110px; background:transparent; border:none; outline:none; color:var(--cream);
+    font-family:'JetBrains Mono',monospace; font-size:16px; padding:9px 10px;
+  }
+
+  .player-row{
+    display:grid; grid-template-columns: 1fr auto auto auto auto; align-items:center; gap:10px;
+    padding:10px 0; border-bottom:1px solid var(--line);
+  }
+  .player-row:last-of-type{border-bottom:none;}
+  .player-row input[type="text"]{
+    background:transparent; border:none; border-bottom:1px dashed transparent; color:var(--cream);
+    font-family:'Inter',sans-serif; font-size:16px; font-weight:500; padding:6px 2px; outline:none; min-width:0;
+  }
+  .player-row input[type="text"]:focus{border-bottom:1px dashed var(--brass);}
+  .player-row input[type="text"]::placeholder{color:var(--cream-dim);}
+
+  .stepper{display:flex; align-items:center; gap:6px; background:var(--felt-900); border:1px solid var(--line); border-radius:8px; padding:4px;}
+  .stepper button{width:24px; height:24px; border-radius:6px; border:none; background:transparent; color:var(--brass); font-size:15px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center;}
+  .stepper button:hover{background:rgba(201,162,74,0.15);}
+  .stepper .count{font-family:'JetBrains Mono',monospace; font-size:13px; min-width:16px; text-align:center;}
+
+  .cashout-field{display:flex; align-items:center; gap:2px; background:var(--felt-900); border:1px solid var(--line); border-radius:8px; padding:0 8px;}
+  .cashout-field span{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cream-dim);}
+  .cashout-field input{width:64px; background:transparent; border:none; outline:none; color:var(--cream); font-family:'JetBrains Mono',monospace; font-size:16px; padding:8px 4px;}
+
+  .remove-btn{background:none; border:none; color:var(--red); opacity:0.55; cursor:pointer; font-size:16px; padding:4px; line-height:1;}
+  .remove-btn:hover{opacity:1;}
+
+  .add-player, .primary-btn, .ghost-btn{
+    width:100%; padding:12px; border-radius:10px; font-family:'JetBrains Mono',monospace; font-size:12.5px;
+    letter-spacing:0.05em; cursor:pointer; text-align:center; text-transform:uppercase;
+  }
+  .add-player{margin-top:14px; background:transparent; border:1px dashed var(--line); color:var(--brass-bright);}
+  .add-player:hover{border-color:var(--brass); background:rgba(201,162,74,0.06);}
+  .primary-btn{background:var(--brass); border:none; color:var(--felt-900); font-weight:700;}
+  .primary-btn:hover{background:var(--brass-bright);}
+  .primary-btn:disabled{opacity:0.4; cursor:not-allowed;}
+  .ghost-btn{background:transparent; border:1px solid var(--line); color:var(--cream);}
+  .ghost-btn:hover{border-color:var(--brass);}
+  .btn-row{display:flex; gap:10px; margin-top:16px;}
+
+  .col-labels{
+    display:grid; grid-template-columns: 1fr auto auto auto auto; gap:10px; font-family:'JetBrains Mono',monospace;
+    font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--cream-dim); padding-bottom:8px; margin-bottom:4px;
+  }
+  .col-labels .buyins-col, .col-labels .cashout-col{text-align:center;}
+
+  .ledger-table{width:100%; border-collapse:collapse;}
+  .ledger-table th{text-align:left; font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--cream-dim); padding-bottom:10px; font-weight:500;}
+  .ledger-table th.num, .ledger-table td.num{text-align:right;}
+  .ledger-table td{padding:10px 0; border-top:1px solid var(--line); font-size:14px;}
+  .ledger-table td.name{font-weight:600;}
+  .ledger-table td.mono{font-family:'JetBrains Mono',monospace;}
+  .pos{color:var(--green-chip); font-weight:600;}
+  .neg{color:var(--red);}
+  .zero{color:var(--cream-dim);}
+
+  .total-check{margin-top:14px; padding:10px 12px; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:12px; display:flex; justify-content:space-between; align-items:center;}
+  .total-check.ok{background:rgba(63,143,106,0.12); color:#8fd6b4; border:1px solid rgba(63,143,106,0.3);}
+  .total-check.bad{background:rgba(184,73,63,0.12); color:#e8a29c; border:1px solid rgba(184,73,63,0.3);}
+
+  .settle-list{display:flex; flex-direction:column; gap:10px;}
+  .settle-row{display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--felt-900); border:1px solid var(--line); border-radius:10px;}
+  .settle-row .party{font-weight:600; font-size:14.5px; flex:1;}
+  .settle-row .from{color:var(--red);}
+  .settle-row .to{color:var(--green-chip); text-align:right;}
+  .settle-row .arrow{color:var(--brass); font-family:'JetBrains Mono',monospace; font-size:12px; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:90px;}
+  .settle-row .amt{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--brass-bright);}
+  .settle-row .arrow-line{width:100%; height:1px; background:var(--line); position:relative;}
+  .settle-row .arrow-line::after{content:"›"; position:absolute; right:-2px; top:-9px; color:var(--brass);}
+
+  .empty-note{text-align:center; color:var(--cream-dim); font-size:13px; padding:20px 0; font-family:'JetBrains Mono',monospace;}
+
+  /* history */
+  .session-item{border:1px solid var(--line); border-radius:12px; margin-bottom:12px; overflow:hidden;}
+  .session-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; cursor:pointer; background:rgba(255,255,255,0.02);}
+  .session-head .date{font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--brass-bright); font-weight:600;}
+  .session-head .meta{font-size:12px; color:var(--cream-dim); margin-top:2px;}
+  .session-head .chev{color:var(--brass); transition:transform 0.15s;}
+  .session-item.open .chev{transform:rotate(90deg);}
+  .session-body{display:none; padding:0 16px 16px;}
+  .session-item.open .session-body{display:block;}
+  .session-actions{display:flex; gap:8px; margin-top:12px;}
+  .small-btn{
+    padding:7px 12px; border-radius:7px; font-family:'JetBrains Mono',monospace; font-size:11px;
+    background:transparent; border:1px solid var(--line); color:var(--cream-dim); cursor:pointer;
+  }
+  .small-btn:hover{border-color:var(--brass); color:var(--brass-bright);}
+  .small-btn.danger:hover{border-color:var(--red); color:#e8a29c;}
+
+  /* standings */
+  .standings-row{display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line);}
+  .standings-row:first-of-type{border-top:none;}
+  .standings-rank{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cream-dim); width:18px;}
+  .standings-name{flex:1; font-weight:600; font-size:14.5px;}
+  .standings-net{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14.5px;}
+  .standings-sessions{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cream-dim);}
+
+  /* summary / share */
+  .summary-box{
+    background:var(--felt-900); border:1px solid var(--line); border-radius:10px; padding:16px;
+    font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.7; white-space:pre-wrap;
+    color:var(--cream); margin-bottom:14px;
+  }
+  .copy-feedback{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--green-chip); text-align:center; margin-top:8px; min-height:14px;}
+
+  .loading{text-align:center; padding:60px 0; color:var(--cream-dim); font-family:'JetBrains Mono',monospace; font-size:13px;}
+
+  footer{text-align:center; margin-top:28px; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--cream-dim); letter-spacing:0.05em;}
+
+  /* iOS Safari zooms in on any input under 16px on focus — keep these pinned at 16px */
+  .player-row input[type="text"],
+  .cashout-field input,
+  .buyin-input input,
+  .text-input input {
+    font-size: 16px;
+  }
+
+  @media (max-width:480px){
+    .player-row{grid-template-columns: 1fr auto auto auto; row-gap:8px;}
+    .col-labels{grid-template-columns: 1fr auto auto auto;}
+    .player-row input[type="text"]{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">— Session Ledger —</div>
+    <h1>Who owes <span>who</span></h1>
+    <div class="sub">Buy-ins, cash-outs, and a running tab across every session.</div>
+    <div class="shared-note"><span class="dot" id="backendDot"></span> <span id="backendLabel">Checking storage…</span></div>
+  </header>
+
+  <div id="loadingState" class="loading">Shuffling up…</div>
+
+  <div id="setupCard" class="card" style="display:none;">
+    <h2><span class="titlegroup"><span class="n">⚙</span> Connect your Google Sheet</span></h2>
+    <p style="font-size:13px; color:var(--cream-dim); line-height:1.6; margin-top:0;">
+      Paste the Web App URL from your deployed Apps Script (ends in <code style="color:var(--brass-bright);">/exec</code>).
+      This is saved in this browser only — paste it once per device.
+    </p>
+    <div class="field-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div class="text-input" style="width:100%;"><input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%; font-size:16px;"></div>
+      <button class="primary-btn" id="saveScriptUrlBtn">Connect</button>
+    </div>
+    <div class="copy-feedback" id="setupFeedback"></div>
+  </div>
+
+  <div id="appRoot" style="display:none;">
+
+    <div class="tabs">
+      <button class="tab active" data-tab="new">New Session</button>
+      <button class="tab" data-tab="history">History</button>
+      <button class="tab" data-tab="standings">Standings</button>
+      <button class="tab" data-tab="settings">⚙</button>
+    </div>
+
+    <!-- NEW SESSION -->
+    <div class="panel active" id="panel-new">
+
+      <div class="card">
+        <h2><span class="titlegroup"><span class="n">1</span> Session details</span></h2>
+        <div class="field-row">
+          <label>Date</label>
+          <div class="text-input"><input type="date" id="sessionDate"></div>
+        </div>
+        <div class="field-row">
+          <label>Buy-in per unit</label>
+          <div class="buyin-input"><span class="prefix">RM</span><input type="number" id="buyinUnit" value="50" min="1" step="1"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="titlegroup"><span class="n">2</span> Players</span></h2>
+        <div class="col-labels">
+          <div>Name</div><div class="buyins-col">Buy-ins</div><div class="cashout-col">Cash-out</div><div></div><div></div>
+        </div>
+        <div id="playerRows"></div>
+        <button class="add-player" id="addPlayerBtn">+ ADD PLAYER</button>
+      </div>
+
+      <div class="card" id="ledgerCard" style="display:none;">
+        <h2><span class="titlegroup"><span class="n">3</span> Net result</span></h2>
+        <table class="ledger-table">
+          <thead><tr><th>Player</th><th class="num">In</th><th class="num">Out</th><th class="num">Net</th></tr></thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+        <div id="totalCheck"></div>
+      </div>
+
+      <div class="card" id="settleCard" style="display:none;">
+        <h2><span class="titlegroup"><span class="n">4</span> Settle up</span><span style="color:var(--cream-dim); font-weight:400; text-transform:none; letter-spacing:0; font-size:11px;">fewest transfers</span></h2>
+        <div class="settle-list" id="settleList"></div>
+      </div>
+
+      <div class="card" id="saveCard" style="display:none;">
+        <h2><span class="titlegroup"><span class="n">5</span> Save &amp; share</span></h2>
+        <div class="btn-row">
+          <button class="primary-btn" id="saveSessionBtn">Save this session</button>
+          <button class="ghost-btn" id="previewShareBtn" style="flex:0 0 auto; width:auto; padding-left:18px; padding-right:18px;">Preview summary</button>
+        </div>
+        <div id="saveFeedback" class="copy-feedback"></div>
+      </div>
+
+    </div>
+
+    <!-- HISTORY -->
+    <div class="panel" id="panel-history">
+      <div class="card">
+        <h2><span class="titlegroup"><span class="n">•</span> All sessions</span></h2>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
+    <!-- STANDINGS -->
+    <div class="panel" id="panel-standings">
+      <div class="card">
+        <h2><span class="titlegroup"><span class="n">•</span> All-time net</span></h2>
+        <div id="standingsList"></div>
+      </div>
+      <div class="card" id="allTimeSettleCard" style="display:none;">
+        <h2><span class="titlegroup"><span class="n">•</span> All-time settle up</span></h2>
+        <div class="settle-list" id="allTimeSettleList"></div>
+      </div>
+      <div class="card">
+        <h2><span class="titlegroup"><span class="n">•</span> Share standings</span></h2>
+        <div class="summary-box" id="standingsSummaryBox">—</div>
+        <button class="primary-btn" id="copyStandingsBtn">Copy for group chat</button>
+        <div class="copy-feedback" id="standingsCopyFeedback"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="card">
+        <h2><span class="titlegroup"><span class="n">⚙</span> Google Sheet connection</span></h2>
+        <div class="field-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+          <label>Apps Script Web App URL</label>
+          <div class="text-input" style="width:100%;"><input type="url" id="scriptUrlInputSettings" style="width:100%; font-size:16px;"></div>
+          <button class="primary-btn" id="updateScriptUrlBtn">Save</button>
+        </div>
+        <div class="copy-feedback" id="settingsFeedback"></div>
+        <p style="font-size:12px; color:var(--cream-dim); line-height:1.6;">
+          Every session read/write goes straight to this Sheet — nothing is stored inside Claude. Anyone who has this exact URL baked into their copy of the page (or pastes it in here) reads and writes the same data. Re-paste this URL if you ever open the app on a new device or browser.
+        </p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Share summary modal (simple inline card, not a real modal) -->
+  <div class="card" id="shareCard" style="display:none;">
+    <h2><span class="titlegroup"><span class="n">✓</span> Ready to share</span></h2>
+    <div class="summary-box" id="shareSummaryBox">—</div>
+    <div class="btn-row">
+      <button class="primary-btn" id="copyShareBtn">Copy for group chat</button>
+      <button class="ghost-btn" id="closeShareBtn" style="flex:0 0 auto; width:auto; padding-left:18px; padding-right:18px;">Close</button>
+    </div>
+    <div class="copy-feedback" id="shareCopyFeedback"></div>
+  </div>
+
+  <footer>ALL FIGURES IN RM · ROUNDED TO THE NEAREST SEN</footer>
+</div>
+
+<script>
+const SCRIPT_URL_KEY = 'poker-sheet-script-url'; // stored via window.storage as a best-effort convenience only
+
+// If you want this URL baked in for everyone who opens this exact file/link,
+// paste it here between the quotes. Otherwise leave blank and each device
+// will be prompted to paste it once.
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzd7Rg3uek1EqfNPdmCSXcw5ZQzxQzr8SuB26MF2dUS0cFXEmO9Ugfm6F98AzrH4OaXyA/exec';
+
+let sessions = [];
+let players = [
+  {id: cryptoId(), name:'', buyins:1, cashout:''},
+  {id: cryptoId(), name:'', buyins:1, cashout:''},
+];
+
+function cryptoId(){ return 'p'+Math.random().toString(36).slice(2,9); }
+function round2(n){ return Math.round(n * 100) / 100; }
+function fmt(n){ const sign = n < 0 ? '-' : ''; return sign + 'RM ' + Math.abs(n).toFixed(2); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function todayStr(){ const d = new Date(); return d.toISOString().slice(0,10); }
+function prettyDate(iso){
+  try{
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-MY', {day:'numeric', month:'short', year:'numeric'});
+  } catch(e){ return iso; }
+}
+
+/* ---------- storage: Google Sheet via Apps Script Web App ---------- */
+
+// Best-effort convenience: remember the pasted URL across reloads within Claude,
+// where window.storage is available. Never required — SCRIPT_URL constant above,
+// or re-pasting in Settings, always works regardless of this succeeding.
+async function rememberScriptUrl(url){
+  try{
+    if(window.storage) await window.storage.set(SCRIPT_URL_KEY, url, false);
+  } catch(e){ /* non-fatal, ignore */ }
+}
+async function recallScriptUrl(){
+  try{
+    if(!window.storage) return '';
+    const res = await window.storage.get(SCRIPT_URL_KEY, false);
+    return res ? res.value : '';
+  } catch(e){ return ''; }
+}
+
+async function loadSessions(){
+  if(!SCRIPT_URL) return [];
+  const res = await fetch(SCRIPT_URL + '?t=' + Date.now());
+  if(!res.ok) throw new Error('Sheet returned ' + res.status);
+  const data = await res.json();
+  return Array.isArray(data.sessions) ? data.sessions : [];
+}
+
+async function saveSessions(list){
+  if(!SCRIPT_URL) return false;
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight Apps Script can't handle
+    body: JSON.stringify({ sessions: list })
+  });
+  if(!res.ok) return false;
+  const data = await res.json();
+  return !!data.ok;
+}
+
+/* ---------- settlement algorithm ---------- */
+function settleDebts(nets){
+  const debtors = nets.filter(n => n.net < -0.005).map(n => ({name:n.name, amt: -n.net})).sort((a,b)=>b.amt-a.amt);
+  const creditors = nets.filter(n => n.net > 0.005).map(n => ({name:n.name, amt: n.net})).sort((a,b)=>b.amt-a.amt);
+  const result = [];
+  let i=0, j=0;
+  while(i < debtors.length && j < creditors.length){
+    const d = debtors[i], c = creditors[j];
+    const amt = Math.min(d.amt, c.amt);
+    if(amt > 0.005) result.push({from:d.name, to:c.name, amount: round2(amt)});
+    d.amt = round2(d.amt - amt); c.amt = round2(c.amt - amt);
+    if(d.amt <= 0.005) i++;
+    if(c.amt <= 0.005) j++;
+  }
+  return result;
+}
+
+function renderSettleList(container, settlements){
+  if(settlements.length === 0){
+    container.innerHTML = `<div class="empty-note">Everyone's already square.</div>`;
+    return;
+  }
+  container.innerHTML = settlements.map(s => `
+    <div class="settle-row">
+      <span class="party from">${escapeHtml(s.from)}</span>
+      <span class="arrow"><span class="amt">${fmt(s.amount)}</span><span class="arrow-line"></span></span>
+      <span class="party to">${escapeHtml(s.to)}</span>
+    </div>
+  `).join('');
+}
+
+/* ============ NEW SESSION PANEL ============ */
+const buyinUnitEl = document.getElementById('buyinUnit');
+const sessionDateEl = document.getElementById('sessionDate');
+const playerRowsEl = document.getElementById('playerRows');
+const addPlayerBtn = document.getElementById('addPlayerBtn');
+const ledgerCard = document.getElementById('ledgerCard');
+const settleCard = document.getElementById('settleCard');
+const saveCard = document.getElementById('saveCard');
+const ledgerBody = document.getElementById('ledgerBody');
+const totalCheckEl = document.getElementById('totalCheck');
+const settleList = document.getElementById('settleList');
+const saveSessionBtn = document.getElementById('saveSessionBtn');
+const saveFeedback = document.getElementById('saveFeedback');
+const previewShareBtn = document.getElementById('previewShareBtn');
+
+sessionDateEl.value = todayStr();
+
+let currentNets = [];
+let currentSettlements = [];
+
+function renderPlayers(){
+  playerRowsEl.innerHTML = '';
+  players.forEach((p, idx) => {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    row.innerHTML = `
+      <input type="text" placeholder="Player ${idx+1}" value="${escapeHtml(p.name)}" data-field="name" />
+      <div class="stepper">
+        <button data-action="dec" type="button">−</button>
+        <span class="count">${p.buyins}</span>
+        <button data-action="inc" type="button">+</button>
+      </div>
+      <div class="cashout-field"><span>RM</span><input type="number" placeholder="0" value="${p.cashout}" data-field="cashout" step="0.01" /></div>
+      <button class="remove-btn" data-action="remove" type="button" title="Remove player">✕</button>
+      <span></span>
+    `;
+    row.querySelector('[data-field="name"]').addEventListener('input', e => { p.name = e.target.value; calc(); });
+    row.querySelector('[data-field="cashout"]').addEventListener('input', e => { p.cashout = e.target.value; calc(); });
+    row.querySelector('[data-action="inc"]').addEventListener('click', () => { p.buyins++; renderPlayers(); calc(); });
+    row.querySelector('[data-action="dec"]').addEventListener('click', () => { if(p.buyins > 0) p.buyins--; renderPlayers(); calc(); });
+    row.querySelector('[data-action="remove"]').addEventListener('click', () => { players = players.filter(pl => pl.id !== p.id); renderPlayers(); calc(); });
+    playerRowsEl.appendChild(row);
+  });
+}
+
+addPlayerBtn.addEventListener('click', () => { players.push({id: cryptoId(), name:'', buyins:1, cashout:''}); renderPlayers(); calc(); });
+buyinUnitEl.addEventListener('input', calc);
+
+function calc(){
+  const unit = parseFloat(buyinUnitEl.value) || 0;
+  const rows = players.map((p, idx) => {
+    const name = p.name.trim() || `Player ${idx+1}`;
+    const buyinTotal = unit * (p.buyins || 0);
+    const cashout = p.cashout === '' ? null : parseFloat(p.cashout);
+    return { name, buyinTotal, cashout };
+  }).filter(p => p.cashout !== null && !isNaN(p.cashout));
+
+  if(rows.length < 2){
+    ledgerCard.style.display = 'none'; settleCard.style.display = 'none'; saveCard.style.display = 'none';
+    currentNets = []; currentSettlements = [];
+    return;
+  }
+
+  currentNets = rows.map(r => ({...r, net: round2(r.cashout - r.buyinTotal)}));
+
+  ledgerBody.innerHTML = currentNets.map(n => `
+    <tr>
+      <td class="name">${escapeHtml(n.name)}</td>
+      <td class="num mono">${fmt(n.buyinTotal)}</td>
+      <td class="num mono">${fmt(n.cashout)}</td>
+      <td class="num mono ${n.net > 0 ? 'pos' : n.net < 0 ? 'neg' : 'zero'}">${n.net > 0 ? '+' : ''}${fmt(n.net)}</td>
+    </tr>
+  `).join('');
+
+  const totalNet = round2(currentNets.reduce((s,n) => s + n.net, 0));
+  totalCheckEl.className = 'total-check ' + (Math.abs(totalNet) < 0.01 ? 'ok' : 'bad');
+  totalCheckEl.innerHTML = Math.abs(totalNet) < 0.01
+    ? `<span>✓ Table balances</span><span>Δ ${fmt(totalNet)}</span>`
+    : `<span>⚠ Doesn't balance — check cash-out totals</span><span>Δ ${fmt(totalNet)}</span>`;
+
+  ledgerCard.style.display = 'block';
+
+  currentSettlements = settleDebts(currentNets.map(n => ({name:n.name, net:n.net})));
+  renderSettleList(settleList, currentSettlements);
+  settleCard.style.display = 'block';
+  saveCard.style.display = 'block';
+}
+
+function buildSessionSummaryText(session){
+  const lines = [];
+  lines.push(`🃏 Poker Night — ${prettyDate(session.date)}`);
+  lines.push(`Buy-in: RM${session.buyinUnit}`);
+  lines.push('');
+  session.nets.slice().sort((a,b)=>b.net-a.net).forEach(n => {
+    const sign = n.net > 0 ? '+' : '';
+    lines.push(`${n.name}: ${sign}${fmt(n.net)}`);
+  });
+  if(session.settlements.length){
+    lines.push('');
+    lines.push('Settle up:');
+    session.settlements.forEach(s => lines.push(`${s.from} → ${s.to}: ${fmt(s.amount)}`));
+  }
+  return lines.join('\n');
+}
+
+function showShareCard(text){
+  document.getElementById('shareSummaryBox').textContent = text;
+  document.getElementById('shareCard').style.display = 'block';
+  document.getElementById('shareCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+previewShareBtn.addEventListener('click', () => {
+  if(currentNets.length < 2) return;
+  const tempSession = { date: sessionDateEl.value || todayStr(), buyinUnit: parseFloat(buyinUnitEl.value)||0, nets: currentNets, settlements: currentSettlements };
+  showShareCard(buildSessionSummaryText(tempSession));
+});
+
+saveSessionBtn.addEventListener('click', async () => {
+  if(currentNets.length < 2) return;
+  saveSessionBtn.disabled = true;
+  saveFeedback.textContent = 'Saving…';
+  const session = {
+    id: cryptoId(),
+    date: sessionDateEl.value || todayStr(),
+    buyinUnit: parseFloat(buyinUnitEl.value) || 0,
+    nets: currentNets,
+    settlements: currentSettlements,
+    savedAt: new Date().toISOString()
+  };
+  const updated = [session, ...sessions];
+  let ok = false;
+  try{ ok = await saveSessions(updated); }
+  catch(e){ console.error(e); ok = false; }
+  saveSessionBtn.disabled = false;
+  if(ok){
+    sessions = updated;
+    saveFeedback.textContent = '✓ Saved to shared history';
+    renderHistory();
+    renderStandings();
+    showShareCard(buildSessionSummaryText(session));
+    // reset form for next session
+    players = [{id: cryptoId(), name:'', buyins:1, cashout:''}, {id: cryptoId(), name:'', buyins:1, cashout:''}];
+    sessionDateEl.value = todayStr();
+    renderPlayers();
+    calc();
+    setTimeout(() => { saveFeedback.textContent = ''; }, 4000);
+  } else {
+    saveFeedback.textContent = '⚠ Could not save to the Sheet — check the URL in Settings and your connection';
+  }
+});
+
+document.getElementById('closeShareBtn').addEventListener('click', () => {
+  document.getElementById('shareCard').style.display = 'none';
+});
+document.getElementById('copyShareBtn').addEventListener('click', () => {
+  copyText(document.getElementById('shareSummaryBox').textContent, document.getElementById('shareCopyFeedback'));
+});
+
+function copyText(text, feedbackEl){
+  const done = () => { feedbackEl.textContent = '✓ Copied — paste it into the group chat'; setTimeout(()=>feedbackEl.textContent='',3000); };
+  const fail = () => { feedbackEl.textContent = '⚠ Could not copy — select and copy manually'; };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+  } else {
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      done();
+    } catch(e){ fail(); }
+  }
+}
+
+/* ============ HISTORY PANEL ============ */
+const historyList = document.getElementById('historyList');
+
+function renderHistory(){
+  if(sessions.length === 0){
+    historyList.innerHTML = `<div class="empty-note">No sessions saved yet — save one from the New Session tab.</div>`;
+    return;
+  }
+  historyList.innerHTML = sessions.map(s => {
+    const winner = s.nets.slice().sort((a,b)=>b.net-a.net)[0];
+    const pot = s.nets.reduce((sum,n)=>sum + n.buyinTotal, 0);
+    return `
+    <div class="session-item" data-id="${s.id}">
+      <div class="session-head" data-action="toggle">
+        <div>
+          <div class="date">${prettyDate(s.date)}</div>
+          <div class="meta">${s.nets.length} players · pot ${fmt(pot)} · top: ${escapeHtml(winner.name)} (${winner.net>0?'+':''}${fmt(winner.net)})</div>
+        </div>
+        <span class="chev">›</span>
+      </div>
+      <div class="session-body">
+        <table class="ledger-table">
+          <thead><tr><th>Player</th><th class="num">In</th><th class="num">Out</th><th class="num">Net</th></tr></thead>
+          <tbody>
+            ${s.nets.map(n => `<tr>
+              <td class="name">${escapeHtml(n.name)}</td>
+              <td class="num mono">${fmt(n.buyinTotal)}</td>
+              <td class="num mono">${fmt(n.cashout)}</td>
+              <td class="num mono ${n.net>0?'pos':n.net<0?'neg':'zero'}">${n.net>0?'+':''}${fmt(n.net)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="settle-list" style="margin-top:12px;">
+          ${s.settlements.length ? s.settlements.map(st => `
+            <div class="settle-row">
+              <span class="party from">${escapeHtml(st.from)}</span>
+              <span class="arrow"><span class="amt">${fmt(st.amount)}</span><span class="arrow-line"></span></span>
+              <span class="party to">${escapeHtml(st.to)}</span>
+            </div>`).join('') : '<div class="empty-note">Everyone was already square.</div>'}
+        </div>
+        <div class="session-actions">
+          <button class="small-btn" data-action="share">Share this session</button>
+          <button class="small-btn danger" data-action="delete">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+historyList.addEventListener('click', async (e) => {
+  const item = e.target.closest('.session-item');
+  if(!item) return;
+  const id = item.dataset.id;
+  const action = e.target.dataset.action;
+
+  if(action === 'toggle' || (!action && e.target.closest('.session-head'))){
+    item.classList.toggle('open');
+    return;
+  }
+  if(action === 'share'){
+    const session = sessions.find(s => s.id === id);
+    if(session) showShareCard(buildSessionSummaryText(session));
+    return;
+  }
+  if(action === 'delete'){
+    if(!confirm('Delete this session from the shared Sheet? This affects everyone using this link.')) return;
+    const updated = sessions.filter(s => s.id !== id);
+    let ok = false;
+    try{ ok = await saveSessions(updated); }
+    catch(e){ console.error(e); ok = false; }
+    if(ok){ sessions = updated; renderHistory(); renderStandings(); }
+    else{ alert('Could not delete — check your connection and try again.'); }
+    return;
+  }
+});
+
+/* ============ STANDINGS PANEL ============ */
+const standingsList = document.getElementById('standingsList');
+const allTimeSettleCard = document.getElementById('allTimeSettleCard');
+const allTimeSettleList = document.getElementById('allTimeSettleList');
+const standingsSummaryBox = document.getElementById('standingsSummaryBox');
+
+function computeStandings(){
+  const map = {};
+  sessions.forEach(s => {
+    s.nets.forEach(n => {
+      if(!map[n.name]) map[n.name] = {name:n.name, net:0, sessions:0};
+      map[n.name].net = round2(map[n.name].net + n.net);
+      map[n.name].sessions++;
+    });
+  });
+  return Object.values(map).sort((a,b)=>b.net-a.net);
+}
+
+function renderStandings(){
+  const standings = computeStandings();
+  if(standings.length === 0){
+    standingsList.innerHTML = `<div class="empty-note">No sessions saved yet.</div>`;
+    allTimeSettleCard.style.display = 'none';
+    standingsSummaryBox.textContent = 'No sessions yet.';
+    return;
+  }
+  standingsList.innerHTML = standings.map((s, idx) => `
+    <div class="standings-row">
+      <span class="standings-rank">#${idx+1}</span>
+      <span class="standings-name">${escapeHtml(s.name)}</span>
+      <span class="standings-sessions">${s.sessions} session${s.sessions>1?'s':''}</span>
+      <span class="standings-net ${s.net>0?'pos':s.net<0?'neg':'zero'}">${s.net>0?'+':''}${fmt(s.net)}</span>
+    </div>
+  `).join('');
+
+  const allTimeSettlements = settleDebts(standings.map(s => ({name:s.name, net:s.net})));
+  if(allTimeSettlements.length){
+    allTimeSettleCard.style.display = 'block';
+    renderSettleList(allTimeSettleList, allTimeSettlements);
+  } else {
+    allTimeSettleCard.style.display = 'none';
+  }
+
+  const lines = [`🏆 All-time standings (${sessions.length} session${sessions.length>1?'s':''})`, ''];
+  standings.forEach((s,idx) => lines.push(`${idx+1}. ${s.name}: ${s.net>0?'+':''}${fmt(s.net)}`));
+  if(allTimeSettlements.length){
+    lines.push('', 'Settle up:');
+    allTimeSettlements.forEach(st => lines.push(`${st.from} → ${st.to}: ${fmt(st.amount)}`));
+  }
+  standingsSummaryBox.textContent = lines.join('\n');
+}
+
+document.getElementById('copyStandingsBtn').addEventListener('click', () => {
+  copyText(standingsSummaryBox.textContent, document.getElementById('standingsCopyFeedback'));
+});
+
+/* ============ TABS ============ */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============ SETUP / SETTINGS (Google Sheet connection) ============ */
+const backendDot = document.getElementById('backendDot');
+const backendLabel = document.getElementById('backendLabel');
+const setupCard = document.getElementById('setupCard');
+const scriptUrlInput = document.getElementById('scriptUrlInput');
+const saveScriptUrlBtn = document.getElementById('saveScriptUrlBtn');
+const setupFeedback = document.getElementById('setupFeedback');
+const scriptUrlInputSettings = document.getElementById('scriptUrlInputSettings');
+const updateScriptUrlBtn = document.getElementById('updateScriptUrlBtn');
+const settingsFeedback = document.getElementById('settingsFeedback');
+
+function setBackendStatus(ok){
+  if(ok){
+    backendDot.style.background = 'var(--green-chip)';
+    backendLabel.textContent = 'Connected to Google Sheet';
+  } else {
+    backendDot.style.background = 'var(--red)';
+    backendLabel.textContent = 'Not connected to a Sheet yet';
+  }
+}
+
+async function tryConnectAndLoad(){
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('appRoot').style.display = 'none';
+  setupCard.style.display = 'none';
+
+  if(!SCRIPT_URL){
+    document.getElementById('loadingState').style.display = 'none';
+    setupCard.style.display = 'block';
+    setBackendStatus(false);
+    return;
+  }
+
+  try{
+    sessions = await loadSessions();
+    setBackendStatus(true);
+    renderPlayers(); calc(); renderHistory(); renderStandings();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('appRoot').style.display = 'block';
+    scriptUrlInputSettings.value = SCRIPT_URL;
+  } catch(e){
+    console.error(e);
+    document.getElementById('loadingState').style.display = 'none';
+    setupCard.style.display = 'block';
+    setBackendStatus(false);
+    setupFeedback.textContent = '⚠ Could not reach that Sheet — double-check the URL and that it\'s deployed with "Anyone" access.';
+  }
+}
+
+saveScriptUrlBtn.addEventListener('click', async () => {
+  const url = scriptUrlInput.value.trim();
+  if(!url){ setupFeedback.textContent = 'Paste the Web App URL first.'; return; }
+  SCRIPT_URL = url;
+  await rememberScriptUrl(url);
+  tryConnectAndLoad();
+});
+
+updateScriptUrlBtn.addEventListener('click', async () => {
+  const url = scriptUrlInputSettings.value.trim();
+  if(!url){ settingsFeedback.textContent = 'Paste a URL first.'; return; }
+  SCRIPT_URL = url;
+  await rememberScriptUrl(url);
+  settingsFeedback.textContent = 'Reconnecting…';
+  try{
+    sessions = await loadSessions();
+    setBackendStatus(true);
+    renderHistory(); renderStandings();
+    settingsFeedback.textContent = '✓ Connected';
+    setTimeout(() => settingsFeedback.textContent = '', 3000);
+  } catch(e){
+    setBackendStatus(false);
+    settingsFeedback.textContent = '⚠ Could not reach that Sheet — check the URL and deployment access.';
+  }
+});
+
+/* ============ INIT ============ */
+(async function init(){
+  if(!SCRIPT_URL){
+    SCRIPT_URL = await recallScriptUrl();
+  }
+  await tryConnectAndLoad();
+})();
+</script>
+</body>
+</html>
