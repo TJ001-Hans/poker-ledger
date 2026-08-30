@@ -99,7 +99,7 @@
   }
   .buyin-input input, .text-input input{
     width:110px; background:transparent; border:none; outline:none; color:var(--cream);
-    font-family:'JetBrains Mono',monospace; font-size:14px; padding:9px 10px;
+    font-family:'JetBrains Mono',monospace; font-size:16px; padding:9px 10px;
   }
 
   .player-row{
@@ -109,7 +109,7 @@
   .player-row:last-of-type{border-bottom:none;}
   .player-row input[type="text"]{
     background:transparent; border:none; border-bottom:1px dashed transparent; color:var(--cream);
-    font-family:'Inter',sans-serif; font-size:15px; font-weight:500; padding:6px 2px; outline:none; min-width:0;
+    font-family:'Inter',sans-serif; font-size:16px; font-weight:500; padding:6px 2px; outline:none; min-width:0;
   }
   .player-row input[type="text"]:focus{border-bottom:1px dashed var(--brass);}
   .player-row input[type="text"]::placeholder{color:var(--cream-dim);}
@@ -121,7 +121,7 @@
 
   .cashout-field{display:flex; align-items:center; gap:2px; background:var(--felt-900); border:1px solid var(--line); border-radius:8px; padding:0 8px;}
   .cashout-field span{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cream-dim);}
-  .cashout-field input{width:64px; background:transparent; border:none; outline:none; color:var(--cream); font-family:'JetBrains Mono',monospace; font-size:14px; padding:8px 4px;}
+  .cashout-field input{width:64px; background:transparent; border:none; outline:none; color:var(--cream); font-family:'JetBrains Mono',monospace; font-size:16px; padding:8px 4px;}
 
   .remove-btn{background:none; border:none; color:var(--red); opacity:0.55; cursor:pointer; font-size:16px; padding:4px; line-height:1;}
   .remove-btn:hover{opacity:1;}
@@ -211,7 +211,7 @@
   @media (max-width:480px){
     .player-row{grid-template-columns: 1fr auto auto auto; row-gap:8px;}
     .col-labels{grid-template-columns: 1fr auto auto auto;}
-    .player-row input[type="text"]{font-size:14px;}
+    .player-row input[type="text"]{font-size:16px;}
   }
 </style>
 </head>
@@ -234,7 +234,7 @@
       This is saved in this browser only — paste it once per device.
     </p>
     <div class="field-row" style="flex-direction:column; align-items:stretch; gap:8px;">
-      <div class="text-input" style="width:100%;"><input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%; font-size:12.5px;"></div>
+      <div class="text-input" style="width:100%;"><input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%; font-size:16px;"></div>
       <button class="primary-btn" id="saveScriptUrlBtn">Connect</button>
     </div>
     <div class="copy-feedback" id="setupFeedback"></div>
@@ -330,7 +330,7 @@
         <h2><span class="titlegroup"><span class="n">⚙</span> Google Sheet connection</span></h2>
         <div class="field-row" style="flex-direction:column; align-items:stretch; gap:8px;">
           <label>Apps Script Web App URL</label>
-          <div class="text-input" style="width:100%;"><input type="url" id="scriptUrlInputSettings" style="width:100%; font-size:12.5px;"></div>
+          <div class="text-input" style="width:100%;"><input type="url" id="scriptUrlInputSettings" style="width:100%; font-size:16px;"></div>
           <button class="primary-btn" id="updateScriptUrlBtn">Save</button>
         </div>
         <div class="copy-feedback" id="settingsFeedback"></div>
